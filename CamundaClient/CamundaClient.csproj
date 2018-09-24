@@ -66,7 +66,7 @@
     <Compile Include="Dto\Variable.cs" />
     <Compile Include="Dto\ProcessInstance.cs" />
     <Compile Include="Dto\ProcessDefinition.cs" />
-    <Compile Include="ProcesstInstance\ProcessInstance.cs" />
+    <Compile Include="ViewModel\TaskResponse.cs" />
     <Compile Include="Requests\CompleteRequest.cs" />
     <Compile Include="Requests\BpmnErrorRequest.cs" />
     <Compile Include="Requests\FailureRequest.cs" />

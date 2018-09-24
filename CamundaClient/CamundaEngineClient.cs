@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using CamundaClient.Service;
 using CamundaClient.Worker;
-using CamundaClient.ProcessInstance;
-using CamundaClient.UserTask;
+using CamundaClient.UserTask;  
 using CamundaClient.Dto;
 
 namespace CamundaClient
@@ -106,6 +105,11 @@ namespace CamundaClient
             if (_humanTaskWorker != null)
             {
                 _humanTaskWorker.Stop();
+            }
+
+            if (_eventTaskWorker != null)
+            {
+                _eventTaskWorker.Stop();
             }
 
             foreach (ExternalTaskWorker worker in _workers)
