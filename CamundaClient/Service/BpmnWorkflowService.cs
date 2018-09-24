@@ -7,6 +7,8 @@ using CamundaClient.Requests;
 using System.Text;
 using Newtonsoft.Json.Serialization;
 using System.Linq;
+using CamundaClient.Worker;
+using System.Threading;
 
 namespace CamundaClient.Service
 {
@@ -15,17 +17,21 @@ namespace CamundaClient.Service
     {
         private CamundaClientHelper helper;
         private IDictionary<string, HumanTask> _userTasks = new Dictionary<string, HumanTask>();
+        private IList<ExternalTaskWorker> _workers = new List<ExternalTaskWorker>();
 
-        public BpmnWorkflowService(CamundaClientHelper client, IDictionary<string, HumanTask> userTasks)
+        public BpmnWorkflowService(CamundaClientHelper client, IDictionary<string, HumanTask> userTasks, IList<ExternalTaskWorker> workers)
         {
             this.helper = client;
             this._userTasks = userTasks;
+            this._workers = workers;
         }
 
-        public string StartProcessInstance(string processDefinitionKey, Dictionary<string, object> variables) => StartProcessInstance(processDefinitionKey, null, variables);
+        public string StartProcessInstance(string processDefinitionKey, Dictionary<string, object> variables, IDictionary<string, Action<IDictionary<string, object>>> events) => StartProcessInstance(processDefinitionKey, null, variables, events);
 
-        public string StartProcessInstance(string processDefinitionKey, string businessKey, Dictionary<string, object> variables)
+        public string StartProcessInstance(string processDefinitionKey, string businessKey, Dictionary<string, object> variables, IDictionary<string, Action<IDictionary<string, object>>> events)
         {
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+
             var http = helper.HttpClient();
 
             var request = new CompleteRequest();
@@ -39,6 +45,30 @@ namespace CamundaClient.Service
                 var processInstance = JsonConvert.DeserializeObject<Dto.ProcessInstance>(response.Content.ReadAsStringAsync().Result);
 
                 this._userTasks.Add(processInstance.Id, null);
+                
+                if (events != null)
+                {
+                    foreach(var evt in events)
+                    {
+                        var externalTask = GetExternalTaskByTopicName(evt.Key);
+                        if (externalTask != null)
+                        {
+                            if (externalTask.Events.ContainsKey(processInstance.Id))
+                            {
+                                var list_evt = externalTask.Events[processInstance.Id]?? new List<Action<IDictionary<string, object>>>();
+                                list_evt.Add(evt.Value);
+                            }
+                            else
+                            {
+                                externalTask.Events.Add(processInstance.Id, new List<Action<IDictionary<string, object>>>()
+                                {
+                                    evt.Value
+                                });
+                            }
+                        }
+                    }
+                }
+
                 return processInstance.Id;
             }
             else
@@ -92,6 +122,10 @@ namespace CamundaClient.Service
 
         }
 
+        private ExternalTaskAdapter GetExternalTaskByTopicName(string topicName)
+        {
+            return _workers.Where(x => x.taskWorkerInfo.TopicName == topicName).Select(x => x.taskWorkerInfo.TaskAdapter).SingleOrDefault();
+        }
     }
 
 
